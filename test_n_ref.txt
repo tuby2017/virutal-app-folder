@@ -1,0 +1,273 @@
+-- Can laucher's desktop files store in a folder? pcmanfm Applications menu virtual folder. In file, xfce ? 
+gnome appfolder, kde ~/.config/...desktop-appletsrc
+##locate -b \*.desktop???
+/usr/share/applications display=false 
+~/.local/share/applications
+'/home/usrNm/.config/xfce4/panel/whiskermenu-20.rc' recent=
+/home/usrNm/.cache/../xfce..xml
+
+/etc/xdg/menus
+/var/lib/menu-xdg/applications/menu-xdg
+/usr/share/menu
+https://wiki.archlinux.org/index.php/Xdg-menu
+https://wiki.archlinux.org/index.php/xfce#Edit_entries, $update-menus
+	mlde /californium, gapan/xdgmenumaker
+	
+########
+cp $prefix/etc/xfce/xdg/menus/xfce-applications.menu ${XDG_CONFIG_HOME:-~/.config}/menus
+
+NoDisplay=true
+Hidden=true
+OnlyShowIn=xfce
+
+https://stackoverflow.com/questions/16956810/how-do-i-find-all-files-containing-specific-text-on-linux
+
+Categories=System;Settings;HardwareSettings;Printing;GTK;
+Categories=GTK;Development;
+Categories=Qt;Utility;
+Catergories=MX-
+Categories=System;X-XFCE;X-Xfce-Toplevel;
+Categories=PackageManager;GTK;System;Settings;
+/home/usrNm/.config/menus
+/etc/xdg/menus
+
+category in other > Settings 
+$ cat xfce-applications.menu |grep Name
+hide empty caetgory folder 
+favorite app folder, ~commit folder change to whisker file?
+'/home/usrNm/.config/xfce4/panel/whiskermenu-20.rc' recent=, favorites=
+Accessories <
+{
+	Accessibility
+	Core
+	Legacy
+	Utility
+}
+exclude
+{
+	exo-file-manager.desktop
+	exo-terminal-emulator.desktop
+	xfce4-about.desktop
+	xfce4-run.desktop
+}
+
+Development < Development
+Education < ''
+Games < Game
+Graphics < ''
+Multimedia < 
+{
+	Audio
+	Video
+	AudioVideo
+}
+Network < ''
+	exclude {exo-mail-reader.desktop,exo-web-browser.desktop}
+Office < ''
+System < {Emulator,System}
+	exclude xfce4-session-logout.desktop
+
+
+grep -rnw '/path/to/somewhere/' -e 'pattern'
+grep --exclude-dir={dir1,dir2,*.dst} -rnw '/path/to/somewhere/' -e "pattern"
+
+##start here ####
+tempprefix=$(basename "$0")
+temp_dir=`mktemp -d -t "${tempprefix}.$(date +%Y-%m-%d.%Hh%Mm%Ss).XXXXXXXXXX"`
+tempfile() {
+    #mktemp -u /tmp/${tempprefix}.XXXXXX
+    mktemp /tmp/${tempprefix}."$1".XXXX
+}
+ # TMP1=$(tempfile varNm) #/tmp/virtual-app-folder.sh.varNm.3JxY
+ #trap "{rm -f /tmp/"$tempprefix".*}" EXIT
+#trap 'rm -rf "$temp_dir"' EXIT
+
+ #grep -s to surpress error
+cd /usr/share/applications;
+allapp=$temp_dir/allapp.txt
+allapp_nodisplay=$temp_dir/allapp-nodisplay.txt
+list_1=$temp_dir/list-1
+grep -s --exclude-dir=screensavers --include=\*.desktop -rl -e '^Exec=' > /tmp/allapp.txt
+grep -s -e '^OnlyShowIn=' * |grep -v 'XFCE'|cut -d':' -f1 > /tmp/allapp-nodisplay.txt
+grep -s --exclude-dir=screensavers --include=\*.desktop -ril -e '^NoDisplay=true' * >> /tmp/allapp-nodisplay.txt
+ #grep -xvf fired.txt workers.txt
+cd $temp_dir #/tmp
+grep -xvf allapp-nodisplay.txt allapp.txt > list-1.txt
+
+homeApp=`echo $HOME/.local/share/applications`
+cd $homeApp
+usrapp=$temp_dir/usrapp.txt
+usrapp_nodisplay='$temp_dir/usrapp-nodisplay.txt'
+list_2=$temp_dir/list-2.txt
+ls -p | egrep -v /$ > /tmp/usrapp.txt
+ #grep --include=\*.desktop -iln -e 'NoDisplay' * #$(ls -p | egrep -v /$)
+grep -s --include=\*.desktop -il -e '^NoDisplay=true' * > /tmp/usrapp-nodisplay.txt 
+cd $temp_dir #/tmp
+grep -xvf usrapp-nodisplay.txt usrapp.txt > list-2.txt
+
+list_3=$temp_dir/list-3.txt
+list_display=$temp_dir/list-display.txt
+grep -xvf usrapp-nodisplay.txt list-1.txt > list-3.txt
+grep -xvf list-2.txt list-3.txt |sed "s;^;/usr/share/applications/;g" > list-1.txt
+cat list-2.txt|sed "s;^;$homeApp/;g" > list-3.txt
+cat list-1.txt list-3.txt|sort > list-display.txt
+
+ld2=$temp_dir/ld2
+ld2_1=$temp_dir/ld2-1
+## todo try reduce repeat grep usage
+grep -e '^Categories=' $(cat list-display.txt) > ld2
+ #cat ld2|cut -d':' -f2 > ld3
+ #cat ld2|grep 'MX-' | cut -d':' -f1
+
+firstList=true
+whichList='ld2'; ListOut='ld2-1'
+whichList=$ld2; ListOut=$ld2_1
+# change ListOut to sourceList ?
+toggleFile(){
+	if [[ "$firstList" == 'false' ]]; then 
+		whichList=$ld2_1; ListOut=$ld2; firstList=true;
+		else whichList=$ld2; ListOut=$ld2_1; firstList=false; fi
+}
+
+function iftest(){
+	#grep -xvf "$folderList" "$whichList" > "$ListOut";;
+	# if $folderList is empty then remove list 
+	[[ ! -s "$1" ]] && return;
+	grep -xvf "$1" "$2" > "$3";
+	local appFolder="$temp_dir/App/$1" #/tmp/App/"$1"
+	mkdir -p "$appFolder";
+	
+	# in $1: path,cat=
+	local cpyFile="$1"-2
+	cut -d':' -f1 "$1" > "$cpyFile"
+	grep -e '^Name=' $(cat "$cpyFile") > "$1"
+	local t1=`cat "$cpyFile"|wc -l`
+	local t2=`cat "$1"|wc -l`
+	local fromFile="$1"
+	[[ ! "$t1" -eq "$t2" ]] && fromFile="$cpyFile"
+	
+	local progNm='Output_desktop_file_name'
+	if [[ "$fromFile" -eq "$cpyFile" ]]; then
+	while read line; do 
+	 progNm=`echo "$appFolder"/"${line##*/}"`
+	 ln -s "$line" "$progNm"; done < "$fromFile"; done; 
+	else
+	while read line; do 
+	 progNm=`cut -d':' -f2 "$line"|cut -c 6-`
+	 ln --backup=t -s "$line" "$appFolder"/"$porgNm" ; done < "$fromFile";
+	done; fi
+}
+
+greploop(){
+	toggleFile;
+	local frstValue=$1
+	local folderList="$2"
+	[[ -z $frstValue ]] && return
+	shift 2
+	case $frstValue in
+		0) grep "$folderList" "$whichList" > "$folderList";
+			#grep -xvf "$folderList" "$whichList" > "$ListOut";;
+			iftest "$folderList" "$whichList" "$ListOut";;
+		1) grep "$1" "$whichList" > "$folderList";
+			grep -xvf "$folderList" "$whichList" > "$ListOut";;
+		2) grep ${@/#/-e } "$whichList" > "$folderList"; 
+			grep -xvf "$folderList" "$whichList" > "$ListOut";;
+		*) echo 'no action, exit script'; exit;;
+	esac
+	#return
+}
+
+cd $temp_dir
+#greploop 2 123 32 3
+#greploop [1|2] 'folderList_Name.txt' 'match_exact_string_1' '2nd' 'etc'
+greploop 1 'MX-Tools' 'MX-' 
+greploop 2 'Multimedia' Audio Video AudioVideo
+greploop 0 'X-XFCE'
+greploop 0 Office
+greploop 1 'Internet' Network
+greploop 2 'System' System Emulator
+greploop 0 Graphics
+ greploop 0 'Development'
+greploop 1 'Games' Game
+greploop 2 'Accessories' Utility Accessibility Core Legacy Utilities
+ greploop 0 Education 
+
+mv $temp_dir/App /tmp/Apps_$(date +%b%d)
+exit
+
+##todo test
+# use gtk-launch from libgtk-3-bin to launch .desktop file, 11mb
+# mime type editor x-desktop
+	#https://www.freeformatter.com/mime-types-list.html x-sh
+	#https://stackoverflow.com/questions/15300574/proper-mime-type-of-shell-scripts-in-subversion text/x-shellscript
+	
+
+
+mkdir -p App/xfce
+while read line; do ln -s "$line" "${line##*/}" ; done < xfce-folder
+#--backup=t #same desktop Name= ?
+ #ls -l *bar
+
+# mkdir -p App/{Mx-Tools,Xfce,Multimedia,Office,Internet,Graphics,System,Accessories}
+#mkdir -p htg/{articles,images,note,done}  #no spaces btwn comma
+
+
+# xfce excute file https://forum.mxlinux.org/viewtopic.php?t=48510
+# https://sourceforge.net/p/spacefm/discussion/general/thread/a68d11eb/
+# .desktop spec https://specifications.freedesktop.org/desktop-entry-spec/desktop-entry-spec-latest.html
+# eval command https://stackoverflow.com/questions/2355148/run-a-string-as-a-command-within-a-bash-script
+
+spacefm -s run-task cmd galculator
+#spacefm -s run-task cmd --terminal bash
+#xfce4-terminal --command galculator  --disable-server
+
+
+#https://unix.stackexchange.com/questions/496179/how-to-change-a-file-in-place-using-awk-as-with-sed-i
+awk -i inplace -F':' '{print $1}' xfce-folder #|uniq
+grep '^Exec=' $(cat xfce-folder)| grep -v 'TryExec='| sort -k1,1 -t':' -u| sed 's/%.*//' 
+
+
+##greploop test
+1) echo grep "$1" "$whichList > $folderList";
+	echo grep "-xvf $folderList $whichList > $ListOut";;
+2) echo grep "$@" "$whichList > $folderList"; 
+	echo grep "-xvf $folderList $whichList > $ListOut";;
+	
+	#echo "$@"
+	#echo 'g 1' "$1" "$whichList";;
+	#echo 'g m' "$whichList";;
+	## folder=$1; shift; echo 'g m' "$@" " to $folder";;
+	#echo 'grep ${@/#/-e }' "$@" "$whichList" "to $toFolder;" "grep -xvf $toFolder $whichList to $ListOut";; ## string w/o spaces, etc
+## test-end 
+
+#boolean toggle to switch between output files ld2 and 2-1
+awk -F':' '$2~/MX/' ld2 > mx-folder #'$2~/MX/ {print $1}'
+ grep -xvf mx-folder ld2 > ld2-1
+grep -e Audio -e Video -e AudioVideo ld2-1 > multimedia-folder
+ grep -xvf multimedia-folder ld2-1 > ld2
+grep 'X-XFCE' ld2 > xfce-folder
+ grep -xvf xfce-folder ld2 > ld2-1
+
+#after x-xfce
+Office
+grep Network 
+grep -e System -e Emulator > system-folder
+grep 'Graphics' 
+grep 'Development' 
+grep 'Game' 
+grep -e Utility -e Accessibility -e Core -e Legacy -e Utilities > Accessories-folder
+
+grep Education ld2 > edu-folder 
+
+ # bash loop inputs start at 2nd https://unix.stackexchange.com/a/526401
+function loop {
+    local command=$1
+    shift
+    for i in "$@"; do
+        "$command" "$i"
+    done
+}
+loop printf 'hello ' 'world\n'
+hello world
+https://wiki.xfce.org/howto/customize-menu
+http://xubuntugeek.blogspot.com/2011/12/add-items-to-xfce-applications-menu.html
